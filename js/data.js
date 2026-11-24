@@ -534,17 +534,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
 window._sendPartnerNotification = function(title, body) {
     try {
-        if (localStorage.getItem('notifEnabled') !== '1') return;
+        // 只要没被手动关掉（notifEnabled === '0'）就允许提醒
+        if (localStorage.getItem('notifEnabled') === '0') return;
         if (!('Notification' in window)) return;
         if (Notification.permission !== 'granted') return;
         if (!document.hidden) return;
-        new Notification(title || '传讯', {
+        var t = title || '传讯';
+        var opts = {
             body: body || '对方发来了消息',
-            icon: (document.querySelector('#partner-avatar img') || {}).src,
+            icon: 'icon-192.png',
+            badge: 'icon-192.png',
             tag: 'partner-msg',
-            renotify: true
-        });
-    } catch(e) {}
+            renotify: true,
+            data: { url: './' }
+        };
+        // 安卓 Chrome 不支持 new Notification()，必须走 Service Worker
+        if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+            navigator.serviceWorker.ready.then(function(reg) {
+                if (reg && reg.showNotification) { reg.showNotification(t, opts); }
+            }).catch(function() {
+                try { new Notification(t, opts); } catch (e) {}
+            });
+            return;
+        }
+        new Notification(t, opts);
+    } catch (e) {}
 };
 
 window.handleNotifToggle = function(checkbox) {
